@@ -28,7 +28,7 @@ def train_model(train_data, model_name="distilbert-base-uncased", num_labels=2):
     
     # Training Arguments
     training_args = TrainingArguments(
-    output_dir="./results",
+    output_dir="/home/shadow-guy/Hackathon_New/results",
     evaluation_strategy="epoch",
     learning_rate=5e-5,  # Try slightly higher or lower
     per_device_train_batch_size=4,  # Adjust for small dataset
@@ -70,8 +70,8 @@ def refine_labels(predictions):
 # Step 5: Iterative Retraining
 def iterative_training():
     # Load datasets from files
-    labeled_data = pd.read_csv("/home/shadow-guy/Hackathon_New/initial_labeled_data.csv")
-    unlabeled_data = pd.read_csv("/home/shadow-guy/Hackathon_New/unlabeled_data.csv")
+    labeled_data = pd.read_csv("initial_labeled_data.csv")
+    unlabeled_data = pd.read_csv("unlabeled_data.csv")
 
     iteration = 0
     while iteration < 3:  # Example: Perform 3 iterations
@@ -95,7 +95,7 @@ def iterative_training():
         iteration += 1
 
     # Save the trained model and tokenizer after the final iteration
-    output_dir = "final_model"  # Specify the directory to save the model
+    output_dir = "/home/shadow-guy/Hackathon_New/final_model"  # Specify the directory to save the model
     print(f"Saving the final model and tokenizer to {output_dir}...")
     trainer.save_model(output_dir)  # Save the model, configuration, and weights
     tokenizer.save_pretrained(output_dir)  # Save the tokenizer files
