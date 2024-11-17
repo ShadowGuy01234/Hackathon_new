@@ -55,8 +55,13 @@ def classify_documents(unlabeled_data, trainer, tokenizer):
     tokenized_data = tokenizer(unlabeled_data["text"].tolist(), padding=True, truncation=True, return_tensors="pt")
     outputs = trainer.model(**tokenized_data)
     predictions = torch.argmax(outputs.logits, dim=1)
+    
+    # Map predictions to category names
+    label_mapping = {0: "AI", 1: "Finance"}
     unlabeled_data["predicted_label"] = predictions.tolist()
+    unlabeled_data["predicted_category"] = unlabeled_data["predicted_label"].map(label_mapping)
     return unlabeled_data
+
 
 # Step 4: Human Refinement (Simulated for this code)
 def refine_labels(predictions):
