@@ -1,45 +1,29 @@
 import os
-import matplotlib.pyplot as plt
-import seaborn as sns
+from data_loader import load_data, load_multiple_files
 import pandas as pd
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-def classify_documents_from_file(file_path, model_dir="final_model"):
+
+def classify_documents(documents, model_dir="final_model"):
     """
-    Classify documents from a single file.
+    Classify a list of documents.
 
     Args:
-        file_path (str): Full path to the document file. Supported formats: .txt, .csv, .json.
-        model_dir (str): Path to the directory containing the saved model and tokenizer.
+        documents (list): A list of strings to classify.
+        model_dir (str): Path to the saved model directory.
 
     Returns:
-        pd.DataFrame: DataFrame containing the text and predicted labels.
+        pd.DataFrame: DataFrame with the original text and predictions.
     """
     # Load the saved model and tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
     model = AutoModelForSequenceClassification.from_pretrained(model_dir)
 
-    # Read the file based on its format
-    if file_path.endswith(".txt"):
-        with open(file_path, "r") as file:
-            documents = file.readlines()
-        documents = [doc.strip() for doc in documents if doc.strip()]  # Remove empty lines
-    elif file_path.endswith(".csv"):
-        df = pd.read_csv(file_path)
-        if "text" not in df.columns:
-            raise ValueError("CSV file must contain a 'text' column.")
-        documents = df["text"].tolist()
-    elif file_path.endswith(".json"):
-        df = pd.read_json(file_path)
-        if "text" not in df.columns:
-            raise ValueError("JSON file must contain a 'text' column.")
-        documents = df["text"].tolist()
-    else:
-        raise ValueError("Unsupported file format. Use .txt, .csv, or .json.")
-
     # Tokenize the input documents
-    inputs = tokenizer(documents, padding=True, truncation=True, return_tensors="pt")
+    inputs = tokenizer(documents, padding=True, truncation=True, return_tensors="pt", max_length=128)
 
     # Perform inference
     with torch.no_grad():
@@ -55,73 +39,67 @@ def classify_documents_from_file(file_path, model_dir="final_model"):
     return results_df
 
 
-def classify_multiple_files(directory="Hackathon_new/test", model_dir="final_model"):
+def classify_files(directory, model_dir="final_model"):
     """
-    Classify documents from multiple files in a directory.
+    Classify all supported files in a directory.
 
     Args:
-        directory (str): Directory containing the document files.
-        model_dir (str): Path to the directory containing the saved model and tokenizer.
+        directory (str): Path to the directory containing files.
+        model_dir (str): Path to the saved model directory.
 
     Returns:
-        dict: A dictionary with file names as keys and classified DataFrames as values.
+        dict: Dictionary of classified DataFrames keyed by file name.
     """
+    print(f"Loading files from directory: {directory}")
+    all_data = load_multiple_files(directory)
     results = {}
-    for file_name in os.listdir(directory):
-        file_path = os.path.join(directory, file_name)
-        if file_name.endswith((".txt", ".csv", ".json")):
-            print(f"Processing file: {file_name}")
-            try:
-                results[file_name] = classify_documents_from_file(file_path, model_dir)
-            except Exception as e:
-                print(f"Error processing {file_name}: {e}")
 
-    # Combine all results into one DataFrame for plotting
-    combined_results = pd.concat(results.values(), ignore_index=True)
-
-    # Plot the classification results
-    print("\nGenerating classification graph...")
-    plot_classification_results(combined_results)
+    for file_name, data in all_data.items():
+        print(f"\nClassifying data from {file_name}...")
+        try:
+            documents = data["text"].tolist()  # Extract text column
+            results[file_name] = classify_documents(documents, model_dir)
+        except Exception as e:
+            print(f"Error classifying {file_name}: {e}")
 
     return results
 
 
 def plot_classification_results(results):
     """
-    Plot a bar graph showing the count of documents in each category.
+    Plot a bar graph of classification results.
 
     Args:
-        results (pd.DataFrame): DataFrame containing 'predicted_category' column.
+        results (pd.DataFrame): Combined DataFrame with 'predicted_category' column.
     """
-    # Count the number of documents per category
-    category_counts = results["predicted_category"].value_counts().sort_index()
+    # Count categories
+    category_counts = results["predicted_category"].value_counts()
 
-    # Create a bar plot
+    # Plot
     sns.set(style="whitegrid")
     plt.figure(figsize=(8, 6))
     sns.barplot(x=category_counts.index, y=category_counts.values, palette="viridis")
-
-    # Add labels and title
     plt.xlabel("Categories", fontsize=12)
-    plt.ylabel("Number of Documents", fontsize=12)
-    plt.title("Document Classification Results", fontsize=15)
+    plt.ylabel("Count", fontsize=12)
+    plt.title("Classification Results", fontsize=15)
     plt.xticks(fontsize=10)
     plt.show()
 
 
 if __name__ == "__main__":
-    # Base directory where the test files are located
-    base_dir = "./test"
+    # Path to the directory containing test files
+    test_dir = "/home/shadow-guy/Hackathon_New/Hackathon_new/test"  # Replace with your directory path
+    model_dir = "/home/shadow-guy/Hackathon_New/Hackathon_new/final_model"  # Replace with your model directory path
 
-    # Path to the directory where the trained model is stored
-    model_dir = "/home/shadow-guy/Hackathon_New/final_model"
+    print("Classifying files from the test directory...")
+    results = classify_files(test_dir, model_dir)
 
-    # Classify documents from multiple files and print the results
-    print("Classifying documents from multiple files...")
-    try:
-        results = classify_multiple_files(base_dir, model_dir)
-        for file_name, result_df in results.items():
-            print(f"\nResults for {file_name}:\n")
-            print(result_df)
-    except Exception as e:
-        print(f"Error: {e}")
+    # Combine all results for visualization
+    combined_results = pd.concat(results.values(), ignore_index=True)
+
+    # Display combined results
+    print("\nCombined classification results:")
+    print(combined_results)
+
+    # Plot classification results
+    plot_classification_results(combined_results)
